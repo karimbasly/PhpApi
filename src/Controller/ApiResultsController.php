@@ -13,9 +13,9 @@ use Symfony\Component\Routing\Annotation\Route;
 
 
 class ApiResultsController extends AbstractController
-{
-    /*
-}
+{/*
+
+
     public const RUTA_API = '/api/v1/results';
 
     private const HEADER_CACHE_CONTROL = 'Cache-Control';
@@ -29,12 +29,13 @@ class ApiResultsController extends AbstractController
     {
         $this->entityManager = $em;
     }
+
     /**
      * CGET Action
      * Summary: Retrieves the collection of Result.
      * Notes: Returns all Result .
      *
-     * @param   Request $request
+     * @param Request $request
      * @return  Response
      * @Route(
      *     path=".{_format}/{sort?id}",
@@ -52,13 +53,15 @@ class ApiResultsController extends AbstractController
      *     statusCode=401,
      *     message="`Unauthorized`: Invalid credentials."
      * )
-     *
+     */
+
+    /*
     public function cgetAction(Request $request): Response
     {
         $order = $request->get('sort');
         $result = $this->entityManager
             ->getRepository(Result::class)
-            ->findBy([], [ $order => 'ASC' ]);
+            ->findBy([], [$order => 'ASC']);
         $format = Utils::getFormat($request);
 
         // No hay result?
@@ -69,7 +72,7 @@ class ApiResultsController extends AbstractController
         // @codeCoverageIgnoreEnd
 
         // Caching with ETag
-        $etag = md5((string) json_encode($result));
+        $etag = md5((string)json_encode($result));
         if ($etags = $request->getETags()) {
             if (in_array($etag, $etags) || in_array('*', $etags)) {
                 return new Response(null, Response::HTTP_NOT_MODIFIED); // 304
@@ -78,16 +81,17 @@ class ApiResultsController extends AbstractController
 
         return Utils::apiResponse(
             Response::HTTP_OK,
-            [ 'result' => array_map(fn ($u) =>  ['user' => $u], $result) ],
+            ['result' => array_map(fn($u) => ['user' => $u], $result)],
             $format,
             [
                 self::HEADER_CACHE_CONTROL => 'must-revalidate',
                 self::HEADER_ETAG => $etag,
             ]
         );
-    }
-
-
-/*/
+    }*/
 }
+
+
+
+
 
