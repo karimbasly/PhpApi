@@ -27,7 +27,9 @@ use JsonSerializable;
  * @SuppressWarnings(PHPMD.ShortVariable)
  */
 class Result implements JsonSerializable
+
 {
+    public const RESULT_ATTR = 'result';
     /**
      * Result id
      *

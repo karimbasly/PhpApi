@@ -449,7 +449,7 @@ components:
           id: 20
           user_id: 2
           result: 2012
-          time: 2021-12-11 17:52:35
+          time: 2021-12-11/17:52:35
           _links:
             parent:
               href: /api/v1/results
@@ -613,6 +613,12 @@ components:
       description: 'ID of user'
       required: true
       schema: { "type": "integer", pattern: '^\d+$' }
+    resultId:
+        name: resultId
+        in: path
+        description: 'ID of result'
+        required: true
+        schema: { "type": "integer", pattern: '^\d+$' }
     ifMatchParam:
       name: If-Match
       in: header
@@ -622,20 +628,8 @@ components:
         type: string
         pattern: "[0-9a-f]*"
 
-    resultId:
-      name: resultId
-      in: path
-      description: 'ID of result'
-      required: true
-      schema: { "type": "integer", pattern: '^\d+$' }
-    iffMatchParam:
-      name: If-Match
-      in: header
-      description: "ETag value of the resource you are trying to update"
-      required: true
-      schema:
-        type: string
-        pattern: "[0-9a-f]*"
+
+
 
   examples:
     response-400:
