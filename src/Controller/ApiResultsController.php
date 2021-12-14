@@ -4,7 +4,9 @@ namespace App\Controller;
 
 use App\Entity\Message;
 use App\Entity\Result;
+use App\Entity\User;
 use App\Utility\Utils;
+use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Security;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -38,6 +40,7 @@ class ApiResultsController extends AbstractController
     public function __construct(EntityManagerInterface $em)
     {
         $this->entityManager = $em;
+
     }
 
     /**
@@ -153,7 +156,193 @@ class ApiResultsController extends AbstractController
                 self::HEADER_ETAG => $etag,
             ]
         );
+
     }
+    /**
+     * Summary: Provides the list of HTTP supported methods
+     * Notes: Return a &#x60;Allow&#x60; header with a list of HTTP supported methods.
+     *
+     * @param  int $resultId Result id
+     * @return Response
+     * @Route(
+     *     path="/{resultId}.{_format}",
+     *     defaults={ "resultId" = 0, "_format": "json" },
+     *     requirements={
+     *          "resultId": "\d+",
+     *         "_format": "json|xml"
+     *     },
+     *     methods={ Request::METHOD_OPTIONS },
+     *     name="options"
+     * )
+     */
+    public function optionsAction(int $resultId): Response
+    {
+        $methods = $resultId
+            ? [ Request::METHOD_GET, Request::METHOD_PUT, Request::METHOD_DELETE ]
+            : [ Request::METHOD_GET, Request::METHOD_POST ];
+        $methods[] = Request::METHOD_OPTIONS;
+
+        return new Response(
+            null,
+            Response::HTTP_NO_CONTENT,
+            [
+                self::HEADER_ALLOW => implode(', ', $methods),
+                self::HEADER_CACHE_CONTROL => 'public, inmutable'
+            ]
+        );
+    }
+    /**
+     * DELETE Action
+     * Summary: Removes the Result resource.
+     * Notes: Deletes the result identified by &#x60;resultId&#x60;.
+     *
+     * @param Request $request
+     * @param  int $resultId Result id
+     * @return Response
+     * @Route(
+     *     path="/{resultId}.{_format}",
+     *     defaults={ "_format": null },
+     *     requirements={
+     *          "resultId": "\d+",
+     *         "_format": "json|xml"
+     *     },
+     *     methods={ Request::METHOD_DELETE },
+     *     name="delete"
+     * )
+     *
+     * @Security(
+     *     expression="is_granted('IS_AUTHENTICATED_FULLY')",
+     *     statusCode=401,
+     *     message="`Unauthorized`: Invalid credentials."
+     * )
+     */
+    public function deleteAction(Request $request, int $resultId): Response
+    {
+        $format = Utils::getFormat($request);
+        $body = $request->getContent();
+        $postData = json_decode((string) $format, true);
+
+        /** @var Result $result */
+        $result = $this->entityManager
+            ->getRepository(Result::class)
+            ->find($resultId);
+        // Puede borrar un usuario sólo si tiene ROLE_ADMIN
+        if (!$this->isGranted(self::ROLE_ADMIN)  ) { //TODO $this->getUser()->getId()== RESULT userID
+
+            return $this->errorMessage( // 403
+                Response::HTTP_FORBIDDEN,
+                '`Forbidden`: you don\'t have permission to access',
+                $format
+            );
+        }
+
+
+
+        if (null == $result) {   // 404 - Not Found
+            return $this->errorMessage(Response::HTTP_NOT_FOUND, null, $format);
+        }
+
+        $this->entityManager->remove($result);
+        $this->entityManager->flush();
+
+        return Utils::apiResponse(Response::HTTP_NO_CONTENT);
+    }
+
+
+
+    /**
+     * POST action
+     * Summary: Creates a Result resource.
+     *
+     * @param Request $request request
+     * @return Response
+     * @Route(
+     *     path=".{_format}",
+     *     defaults={ "_format": null },
+     *     requirements={
+     *         "_format": "json|xml"
+     *     },
+     *     methods={ Request::METHOD_POST },
+     *     name="post"
+     * )
+     *
+     * @Security(
+     *     expression="is_granted('IS_AUTHENTICATED_FULLY')",
+     *     statusCode=401,
+     *     message="`Unauthorized`: Invalid credentials."
+     * )
+     */
+    public function postAction(Request $request): Response
+    {
+        $format = Utils::getFormat($request);
+        $body = $request->getContent();
+        $postData = json_decode((string) $body, true);
+
+        if (!isset($postData[Result::RESULTA_ATTR],$postData[Result::USER_ATTR])) {
+            // 422 - Unprocessable Entity -> Faltan datos
+            return $this->errorMessage(Response::HTTP_UNPROCESSABLE_ENTITY, null, $format);
+
+        }
+        // Puede crear un usuario sólo si tiene ROLE_ADMIN
+        if ((!$this->isGranted(self::ROLE_ADMIN))||($postData[Result::USER_ATTR] !=  $this->getUser()->getId())){ //Todo add the userid same as the Result-id or ADMIN
+            return $this->errorMessage( // 403
+                Response::HTTP_FORBIDDEN,
+                '`Forbidden`: you don\'t have permission to access' ,
+                $format
+            );
+        }
+        // hay datos -> procesarlos
+        $user_exist = $this->entityManager
+            ->getRepository(User::class)
+            ->findOneBy([ 'id'=> $postData[Result::USER_ATTR] ]);
+        if (null == $user_exist) {    // 400 - Bad Request
+            return $this->errorMessage(Response::HTTP_BAD_REQUEST, "user do not exist", $format);
+        }
+        $newTimestamp = new DateTime('now');
+        // 201 - Created
+        $result = new Result(
+            $postData[Result::RESULTA_ATTR],
+            $user_exist,
+            $newTimestamp
+        );
+
+
+        $this->entityManager->persist($result);
+        $this->entityManager->flush();
+
+        return Utils::apiResponse(
+            Response::HTTP_CREATED,
+            [ Result::RESULT_ATTR => $result ],
+            $format,
+            [
+                'Location' => $request->getScheme() . '://' . $request->getHttpHost() .
+                    self::RUTA_API . '/' . $result->getId(),
+            ]
+        );
+    }
+
+    /**
+     * Error Message Response
+     * @param int $status
+     * @param string|null $customMessage
+     * @param string $format
+     *
+     * @return Response
+     */
+    private function errorMessage(int $status, ?string $customMessage, string $format): Response
+    {
+        $customMessage = new Message(
+            $status,
+            $customMessage ?? strtoupper(Response::$statusTexts[$status])
+        );
+        return Utils::apiResponse(
+            $customMessage->getCode(),
+            $customMessage,
+            $format
+        );
+    }
+
+
 }
 
 

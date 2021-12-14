@@ -35,12 +35,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, JsonSer
     public const EMAIL_ATTR = 'email';
     public const PASSWD_ATTR = 'password';
     public const ROLES_ATTR = 'roles';
+    public const ID_ATTR = 'id';
 
     /**
      * @ORM\Id()
      * @ORM\GeneratedValue()
      * @ORM\Column(type="integer")
-     *
+     *@Serializer\SerializedName(User::ID_ATTR)
      * @Serializer\XmlAttribute
      */
     private ?int $id = 0;
@@ -207,11 +208,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, JsonSer
      */
     public static function createFromPayload($username, array $payload): User|JWTUserInterface
     {
-        return new self(
+        $user = new self(
             $username,
             '',
             $payload['roles'], // Added by default
             // $payload['email'],  // Custom
         );
+        $user->id = $payload['id'];
+        return $user;
     }
 }
