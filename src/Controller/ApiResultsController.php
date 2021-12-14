@@ -8,6 +8,7 @@ use App\Entity\User;
 use App\Utility\Utils;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
+use phpDocumentor\Reflection\Types\This;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Security;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,6 +35,7 @@ class ApiResultsController extends AbstractController
     private const HEADER_ETAG = 'ETag';
     private const HEADER_ALLOW = 'Allow';
     private const ROLE_ADMIN = 'ROLE_ADMIN';
+    private const ROLE_User= 'ROLE_USER';
 
     private EntityManagerInterface $entityManager;
 
@@ -227,8 +229,7 @@ class ApiResultsController extends AbstractController
             ->getRepository(Result::class)
             ->find($resultId);
         // Puede borrar un usuario sólo si tiene ROLE_ADMIN
-        if (!$this->isGranted(self::ROLE_ADMIN)  ) { //TODO $this->getUser()->getId()== RESULT userID
-
+        if (( $result->getUser()->getId() !=$this->getUser()->getId()) &&($this->isGranted(self::ROLE_User) ) ) { //TODO $this->getUser()->getId()== RESULT userID
             return $this->errorMessage( // 403
                 Response::HTTP_FORBIDDEN,
                 '`Forbidden`: you don\'t have permission to access',
@@ -283,8 +284,7 @@ class ApiResultsController extends AbstractController
             return $this->errorMessage(Response::HTTP_UNPROCESSABLE_ENTITY, null, $format);
 
         }
-        // Puede crear un usuario sólo si tiene ROLE_ADMIN
-        if ((!$this->isGranted(self::ROLE_ADMIN))||($postData[Result::USER_ATTR] !=  $this->getUser()->getId())){ //Todo add the userid same as the Result-id or ADMIN
+        if ((!$this->isGranted(self::ROLE_ADMIN)) && ($postData[Result::USER_ATTR] !=  $this->getUser()->getId())){ //Todo add the userid same as the Result-id or ADMIN
             return $this->errorMessage( // 403
                 Response::HTTP_FORBIDDEN,
                 '`Forbidden`: you don\'t have permission to access' ,
@@ -318,6 +318,101 @@ class ApiResultsController extends AbstractController
                 'Location' => $request->getScheme() . '://' . $request->getHttpHost() .
                     self::RUTA_API . '/' . $result->getId(),
             ]
+        );
+    }
+
+
+    /**
+     * PUT action
+     * Summary: Updates the User resource.
+     * Notes: Updates the result identified by &#x60;resultId&#x60;.
+     *
+     * @param   Request $request request
+     * @param   int $resultId Result id
+     * @return  Response
+     * @Route(
+     *     path="/{resultId}.{_format}",
+     *     defaults={ "_format": null },
+     *     requirements={
+     *          "userId": "\d+",
+     *         "_format": "json|xml"
+     *     },
+     *     methods={ Request::METHOD_PUT },
+     *     name="put"
+     * )
+     *
+     * @Security(
+     *     expression="is_granted('IS_AUTHENTICATED_FULLY')",
+     *     statusCode=401,
+     *     message="`Unauthorized`: Invalid credentials."
+     * )
+     */
+    public function putAction(Request $request, int $resultId): Response
+    {
+        $format = Utils::getFormat($request);
+
+        $body = (string) $request->getContent();
+        $postData = json_decode($body, true);
+        /** @var Result $result */
+
+        $result = $this->entityManager
+            ->getRepository(Result::class)
+            ->find($resultId);
+        if (( $result->getUser()->getId() !=$this->getUser()->getId())&&
+            !$this->isGranted(self::ROLE_ADMIN)
+        ) {
+            return $this->errorMessage( // 403
+                Response::HTTP_FORBIDDEN,
+                '`Forbidden`: you don\'t have permission to access',
+                $format
+            );
+        }
+
+
+
+
+        if (null == $result) {    // 404 - Not Found
+            return $this->errorMessage(Response::HTTP_NOT_FOUND, null, $format);
+        }
+
+        // Optimistic Locking (strong validation)
+        $etag = md5((string) json_encode($result));
+        if (!$request->headers->has('If-Match') || $etag != $request->headers->get('If-Match')) {
+            return $this->errorMessage(
+                Response::HTTP_PRECONDITION_FAILED,
+                $etag,
+                $format
+            ); // 412
+        }
+
+        if (isset($postData[Result::USER_ATTR])) {
+            $user_exist = $this->entityManager
+                ->getRepository(User::class)
+                ->findOneBy(['id'=> $postData[Result::USER_ATTR] ]);
+
+
+            if (null == $user_exist) {    // 400 - Bad Request
+                return $this->errorMessage(Response::HTTP_BAD_REQUEST, "user do not exist", $format);
+            }
+            $result->setUser($user_exist);
+        }
+
+
+
+
+        // roles
+        if (isset($postData[Result::RESULTA_ATTR])) {
+            $result->setResult($postData[Result::RESULTA_ATTR]);
+        }
+        $newTimestamp = new DateTime('now');
+        $result->setTime($newTimestamp);
+
+        $this->entityManager->flush();
+
+        return Utils::apiResponse(
+            209,                        // 209 - Content Returned
+            [ Result::RESULT_ATTR => $result ],
+            $format
         );
     }
 
