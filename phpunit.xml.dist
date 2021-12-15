@@ -2,15 +2,15 @@
 
 <!-- https://phpunit.readthedocs.io/en/latest/configuration.html -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:noNamespaceSchemaLocation="bin/.phpunit/phpunit.xsd"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         backupGlobals="false"
          colors="true"
-         executionOrder="depends,random"
-         cacheResultFile="var/.phpunit.result.cache"
-         bootstrap="tests/bootstrap.php">
-
+         bootstrap="tests/bootstrap.php"
+         convertDeprecationsToExceptions="false"
+>
     <php>
-        <ini    name="error_reporting" value="-1" />
-        <ini    name="display_errors" value="stdout" />
+        <ini name="display_errors" value="1" />
+        <ini name="error_reporting" value="-1" />
         <server name="APP_ENV" value="test" force="true" />
         <server name="SHELL_VERBOSITY" value="-1" />
         <server name="SYMFONY_PHPUNIT_REMOVE" value="" />
@@ -18,7 +18,7 @@
     </php>
 
     <testsuites>
-        <testsuite name="API MiW Usuarios Test Suite">
+        <testsuite name="Project Test Suite">
             <directory>tests</directory>
         </testsuite>
     </testsuites>
@@ -27,22 +27,16 @@
         <include>
             <directory suffix=".php">src</directory>
         </include>
-        <exclude>
-            <file>src/Kernel.php</file>
-            <directory>src/Repository</directory>
-            <directory>src/Command</directory>
-        </exclude>
-        <report>
-            <html outputDirectory="var/coverage/"/>
-            <xml outputDirectory="var/coverage/" />
-            <!-- text outputFile="var/coverage/coverage.txt" / !-->
-        </report>
     </coverage>
 
     <listeners>
         <listener class="Symfony\Bridge\PhpUnit\SymfonyTestsListener" />
     </listeners>
-    <logging>
-        <junit outputFile="var/coverage/index.junit.xml"/>
-    </logging>
+
+    <!-- Run `composer require symfony/panther` before enabling this extension -->
+    <!--
+    <extensions>
+        <extension class="Symfony\Component\Panther\ServerExtension" />
+    </extensions>
+    -->
 </phpunit>
