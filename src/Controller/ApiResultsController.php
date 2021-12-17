@@ -8,7 +8,6 @@ use App\Entity\User;
 use App\Utility\Utils;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
-use phpDocumentor\Reflection\Types\This;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Security;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -35,7 +34,6 @@ class ApiResultsController extends AbstractController
     private const HEADER_ETAG = 'ETag';
     private const HEADER_ALLOW = 'Allow';
     private const ROLE_ADMIN = 'ROLE_ADMIN';
-    private const ROLE_User= 'ROLE_USER';
 
     private EntityManagerInterface $entityManager;
 
@@ -221,13 +219,12 @@ class ApiResultsController extends AbstractController
     public function deleteAction(Request $request, int $resultId): Response
     {
         $format = Utils::getFormat($request);
-        $body = $request->getContent();
-        $postData = json_decode((string) $format, true);
 
         /** @var Result $result */
         $result = $this->entityManager
             ->getRepository(Result::class)
             ->find($resultId);
+
         if (null == $result) {   // 404 - Not Found
             return $this->errorMessage(Response::HTTP_NOT_FOUND, null, $format);
         }
@@ -239,13 +236,6 @@ class ApiResultsController extends AbstractController
                 $format
             );
         }
-
-
-
-        if (null == $result) {   // 404 - Not Found
-            return $this->errorMessage(Response::HTTP_NOT_FOUND, null, $format);
-        }
-
         $this->entityManager->remove($result);
         $this->entityManager->flush();
 
@@ -287,14 +277,13 @@ class ApiResultsController extends AbstractController
             return $this->errorMessage(Response::HTTP_UNPROCESSABLE_ENTITY, null, $format);
 
         }
-        if ((!$this->isGranted(self::ROLE_ADMIN)) && ($postData[Result::USER_ATTR] !=  $this->getUser()->getId())){ //Todo add the userid same as the Result-id or ADMIN
+        if ((!$this->isGranted(self::ROLE_ADMIN)) && ($postData[Result::USER_ATTR] !=  $this->getUser()->getId())){
             return $this->errorMessage( // 403
                 Response::HTTP_FORBIDDEN,
                 '`Forbidden`: you don\'t have permission to access' ,
                 $format
             );
         }
-        // hay datos -> procesarlos
         $user_exist = $this->entityManager
             ->getRepository(User::class)
             ->findOneBy([ 'id'=> $postData[Result::USER_ATTR] ]);
@@ -327,7 +316,7 @@ class ApiResultsController extends AbstractController
 
     /**
      * PUT action
-     * Summary: Updates the User resource.
+     * Summary: Updates the Result resource.
      * Notes: Updates the result identified by &#x60;resultId&#x60;.
      *
      * @param   Request $request request
@@ -361,6 +350,11 @@ class ApiResultsController extends AbstractController
         $result = $this->entityManager
             ->getRepository(Result::class)
             ->find($resultId);
+
+        if (null == $result) {    // 404 - Not Found
+            return $this->errorMessage(Response::HTTP_NOT_FOUND, null, $format);
+        }
+
         if (( $result->getUser()->getId() !=$this->getUser()->getId())&&
             !$this->isGranted(self::ROLE_ADMIN)
         ) {
@@ -370,20 +364,11 @@ class ApiResultsController extends AbstractController
                 $format
             );
         }
-
-
-
-
-        if (null == $result) {    // 404 - Not Found
-            return $this->errorMessage(Response::HTTP_NOT_FOUND, null, $format);
-        }
-
-        // Optimistic Locking (strong validation)
         $etag = md5((string) json_encode($result));
         if (!$request->headers->has('If-Match') || $etag != $request->headers->get('If-Match')) {
             return $this->errorMessage(
                 Response::HTTP_PRECONDITION_FAILED,
-                $etag,
+                'PRECONDITION FAILED: one or more conditions given evaluated to false',
                 $format
             ); // 412
         }
@@ -400,10 +385,6 @@ class ApiResultsController extends AbstractController
             $result->setUser($user_exist);
         }
 
-
-
-
-        // roles
         if (isset($postData[Result::RESULTA_ATTR])) {
             $result->setResult($postData[Result::RESULTA_ATTR]);
         }
