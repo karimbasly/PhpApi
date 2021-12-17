@@ -228,8 +228,11 @@ class ApiResultsController extends AbstractController
         $result = $this->entityManager
             ->getRepository(Result::class)
             ->find($resultId);
-        // Puede borrar un usuario sólo si tiene ROLE_ADMIN
-        if (( $result->getUser()->getId() !=$this->getUser()->getId()) &&($this->isGranted(self::ROLE_User) ) ) { //TODO $this->getUser()->getId()== RESULT userID
+        if (null == $result) {   // 404 - Not Found
+            return $this->errorMessage(Response::HTTP_NOT_FOUND, null, $format);
+        }
+
+        if (( $result->getUser()->getId() !=$this->getUser()->getId()) &&(!$this->isGranted(self::ROLE_ADMIN)) ) {
             return $this->errorMessage( // 403
                 Response::HTTP_FORBIDDEN,
                 '`Forbidden`: you don\'t have permission to access',
